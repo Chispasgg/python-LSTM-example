@@ -5,7 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
+
+# pgg
 *.pkl
+*.project
+*.pydevproject
 
 # Distribution / packaging
 pruebas/
