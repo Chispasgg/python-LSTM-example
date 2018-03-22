@@ -28,7 +28,6 @@ import keras
 # date-time parsing function for loading the dataset
 def parser(x):
     return datetime.strptime(x, '%Y-%m-%d')
-# return datetime.strptime('190' + x, '%Y-%m')
 
 
 # frame a sequence as a supervised learning problem
@@ -87,14 +86,9 @@ def invert_scale(scaler, X, value):
 
 
 # fit an LSTM network to training data
-def fit_lstm(train, batch_size, repetitions, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level):
+def fit_lstm(train, batch_size, repetitions, epochs, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level):
     X, y = train[:, 0:-1], train[:, -1]
     X = X.reshape(X.shape[0], 1, X.shape[1])
-    
-#     model = Sequential()
-#     model.add(LSTM(neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
-#     model.add(Dense(1))
-#     model.compile(loss='mean_squared_error', optimizer='adam')
     
     # create and fit the LSTM network
     model = Sequential()        
@@ -124,7 +118,7 @@ def fit_lstm(train, batch_size, repetitions, num_lstm_neurons, num_hidden_layers
     for i in range(repetitions):
         if (verbose_level == 0):
             print('process: ' + str(i))
-        model.fit(X, y, epochs=1, batch_size=batch_size, verbose=verbose_level, shuffle=False)
+        model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=verbose_level, shuffle=False)
         model.reset_states()
     return model
 
@@ -174,7 +168,7 @@ def __predict_from_data(csv_file, lstm_model):
     pyplot.show()
 
 
-def __generate_model(dataset_file, model_name):
+def __generate_model(dataset_file, model_name, values_to_predict, batch_size, repetitions, epochs, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level):
     # load dataset
     series = read_csv(dataset_file, header=0, parse_dates=[0], index_col=0, squeeze=True, date_parser=parser)
     
@@ -193,14 +187,14 @@ def __generate_model(dataset_file, model_name):
     scaler, train_scaled, test_scaled = scale(train, test)
     
     # fit the model
-    lstm_model = fit_lstm(train_scaled, batch_size, repetitions, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level)
+    lstm_model = fit_lstm(train_scaled, batch_size, repetitions, epochs, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level)
     
     # save the model and values
     keras.models.save_model(lstm_model, model_name)
     
     # forecast the entire training dataset to build up state for forecasting
     train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
-    lstm_model.predict(train_reshaped, batch_size=1)
+    lstm_model.predict(train_reshaped, batch_size=batch_size)
     
     # walk-forward validation on the test data
     predictions = list()
@@ -235,10 +229,11 @@ if __name__ == '__main__':
     # LSTM
     look_back = 1
     batch_size = 1
-    num_lstm_neurons = 2  # number of neurons inside hidden layer
+    num_lstm_neurons = 4  # number of neurons inside hidden layer
     num_visible_layer = 1 
     num_hidden_layers = 2  # hidden layers
-    repetitions = 10
+    repetitions = 10  # repetitions for training the model
+    epochs = 2  # number of steps to fix the model
     verbose_level = 2
     
     model_name = str(dataset_file) + '_rep_' + str(repetitions) + '_hidlayer_' + str(num_hidden_layers) + '_lstmneurons_' + str(num_lstm_neurons) + '_lookback_' + str(look_back) + '_lstmmodel.pkl'
@@ -252,6 +247,6 @@ if __name__ == '__main__':
         
     else:
         print('    -> generating model ' + str(model_name))
-        __generate_model(dataset_file, model_name)
+        __generate_model(dataset_file, model_name, values_to_predict, batch_size, repetitions, epochs, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level)
     
     print('end')
