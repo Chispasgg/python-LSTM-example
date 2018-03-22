@@ -87,16 +87,44 @@ def invert_scale(scaler, X, value):
 
 
 # fit an LSTM network to training data
-def fit_lstm(train, batch_size, nb_epoch, neurons):
+def fit_lstm(train, batch_size, repetitions, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level):
     X, y = train[:, 0:-1], train[:, -1]
     X = X.reshape(X.shape[0], 1, X.shape[1])
-    model = Sequential()
-    model.add(LSTM(neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
-    model.add(Dense(1))
+    
+#     model = Sequential()
+#     model.add(LSTM(neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
+#     model.add(Dense(1))
+#     model.compile(loss='mean_squared_error', optimizer='adam')
+    
+    # create and fit the LSTM network
+    model = Sequential()        
+    
+    # add hidden layers with memory
+    if (num_hidden_layers > 1):
+        print(' more than one hidden layer')
+        model.add(LSTM(num_lstm_neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True, return_sequences=True))
+        print(' hidden layer added')
+    else:
+        print(' only one hidden layer')
+    num_hidden_layers -= 2
+    
+    for layer in range(num_hidden_layers):
+        model.add(LSTM(num_lstm_neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True, return_sequences=True))
+        print(' hidden layer added')
+    
+    model.add(LSTM(num_lstm_neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
+    print(' hidden layer added')
+    
+    # add visible layer
+    model.add(Dense(num_visible_layer))
+    
     model.compile(loss='mean_squared_error', optimizer='adam')
-    for i in range(nb_epoch):
-        print(' -> process: ' + str(i))
-        model.fit(X, y, epochs=1, batch_size=batch_size, verbose=0, shuffle=False)
+    
+    # fit the model in X epochs
+    for i in range(repetitions):
+        if (verbose_level == 0):
+            print('process: ' + str(i))
+        model.fit(X, y, epochs=1, batch_size=batch_size, verbose=verbose_level, shuffle=False)
         model.reset_states()
     return model
 
@@ -165,7 +193,7 @@ def __generate_model(dataset_file, model_name):
     scaler, train_scaled, test_scaled = scale(train, test)
     
     # fit the model
-    lstm_model = fit_lstm(train_scaled, batch_size, repetitions, neurons)
+    lstm_model = fit_lstm(train_scaled, batch_size, repetitions, num_lstm_neurons, num_hidden_layers, num_visible_layer, verbose_level)
     
     # save the model and values
     keras.models.save_model(lstm_model, model_name)
@@ -205,15 +233,13 @@ if __name__ == '__main__':
     csv_file = 'market-price2.csv'
     
     # LSTM
-    look_back = 3
+    look_back = 1
     batch_size = 1
-    num_lstm_neurons = 4  # number of neurons inside hidden layer
+    num_lstm_neurons = 2  # number of neurons inside hidden layer
     num_visible_layer = 1 
-    num_hidden_layers = 1  # hidden layers
-    
-    batch_size = 1
+    num_hidden_layers = 2  # hidden layers
     repetitions = 10
-    neurons = 4
+    verbose_level = 2
     
     model_name = str(dataset_file) + '_rep_' + str(repetitions) + '_hidlayer_' + str(num_hidden_layers) + '_lstmneurons_' + str(num_lstm_neurons) + '_lookback_' + str(look_back) + '_lstmmodel.pkl'
     
